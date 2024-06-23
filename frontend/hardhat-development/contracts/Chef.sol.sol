@@ -2,9 +2,14 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./Wind.sol";
 
 contract Chef  {
+
+        using SafeMath for uint256;
+    using SafeERC20 for IERC20;
+    
     struct UserInfo {
         bool exists;
         uint256 rewardPending;
@@ -48,7 +53,8 @@ contract Chef  {
         Poolinfo storage pool = polinfo[_pid];
         UserInfo storage user = userinfo[_pid][msg.sender];
         if (_amount > 0) {
-            pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount)
+            pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
+            user.amou
         }
     }
 }

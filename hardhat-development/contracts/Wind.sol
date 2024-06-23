@@ -15,8 +15,8 @@ contract Wind is ERC20 {
         _mint(msg.sender, _amount);
     }
 
-    function transferOwnership () public{
+    function transferOwnership (address _owner) public{
         require(msg.sender == owner, "You are not Owner");
-        owner= msg.sender;
+        owner= _owner;
     }
 }
