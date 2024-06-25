@@ -40,10 +40,10 @@ contract Chef  {
     Poolinfo [] public polinfo;
     mapping (uint256 => mapping ( address => UserInfo)) public userInfo;
     
-    constructor (uint256 _startblock, Wind _wind, address _owner)  {
+    constructor (uint256 _startblock, Wind _wind)  {
         startblock= _startblock;
         wind= _wind;
-        owner= _owner;
+        owner= msg.sender;
     }
 
     modifier onlyOwner() {

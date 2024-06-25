@@ -1,5 +1,6 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+require("./task/accounts");
 
 const config: HardhatUserConfig = {
   networks: {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { eth_usdt_pair, dai_usdt_pair } from "../assets";
 
 const Pools = () => {
@@ -6,16 +7,7 @@ const Pools = () => {
       pair: "ETH/USDT",
       apy: 10,
       image: eth_usdt_pair,
-    },
-    {
-      pair: "DAI/USDT",
-      apy: 10,
-      image: dai_usdt_pair,
-    },
-    {
-      pair: "ETh/DAI",
-      apy: 10,
-      image: eth_usdt_pair,
+      lp_token: "0xc7f602302caf28340bfde77a24ac9d93a10db6ba",
     },
   ];
   return (

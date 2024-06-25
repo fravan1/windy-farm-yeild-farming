@@ -22,7 +22,7 @@ describe("Chef", function () {
     const lpToken_dai_usdt = await LpToken.deploy(LP_TOKEN_INITAL_SUPPLY);
 
     const wind = await Wind.deploy();
-    const chef = await Chef.deploy(1, await wind.getAddress(), owner);
+    const chef = await Chef.deploy(1, await wind.getAddress());
 
     await wind.transferOwnership(await chef.getAddress());
 
