@@ -1,16 +1,13 @@
-import {
-  time,
-  loadFixture,
-} from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
+import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 const { mine } = require("@nomicfoundation/hardhat-network-helpers");
 import { expect } from "chai";
 import hre from "hardhat";
 
-const AMOUNT_TO_STAKE = 100;
+const AMOUNT_TO_STAKE = 1000;
 const LP_TOKEN_INITAL_SUPPLY = 1000;
-const REWARD_PER_BLOCK_PERCENT = 1;
-const DECIMAL_PLACE_ROUND_OFF = 5 - 2;
+const REWARD_PER_BLOCK_PERCENT = 10;
+
+// const START_BLOCK = 10;
 
 describe("Chef", function () {
   async function deployContracts() {
@@ -78,132 +75,77 @@ describe("Chef", function () {
       // Depositing
       await chef.deposit(0, AMOUNT_TO_STAKE);
       // Testing the values
-      expect((await chef.userinfo(0, owner)).exists).to.be.equal(true);
+      expect((await chef.userInfo(0, owner)).exists).to.be.equal(true);
+
       const _reward_per_block = await (
-        await chef.userinfo(0, owner)
+        await chef.userInfo(0, owner)
       ).reward_per_block;
 
-      expect(
-        Math.floor(Number(_reward_per_block) / 10 ** DECIMAL_PLACE_ROUND_OFF)
-      ).to.be.equal(
+      expect(_reward_per_block).to.be.equal(
         Math.floor((REWARD_PER_BLOCK_PERCENT / 100) * AMOUNT_TO_STAKE)
       );
     });
 
-    it("Should be the right reward count", async function () {
-      const { owner, chef, lpToken_dai_ether } = await loadFixture(
+    it("Should be right wallet balance after withdrawl", async function () {
+      const { wind, owner, chef, lpToken_dai_ether } = await loadFixture(
         deployContracts
       );
 
       // Adding LP token to chef contract
       await chef.add(
         await lpToken_dai_ether.getAddress(),
-        20,
+        100000,
         REWARD_PER_BLOCK_PERCENT
       );
-
       // Approving the chef contract address in lp token by user to trasnfer tokens to the chef contract
       await lpToken_dai_ether.approve(await chef.getAddress(), AMOUNT_TO_STAKE);
+      // Depositing
+      await chef.deposit(0, AMOUNT_TO_STAKE);
+      // Withdrawl
+      expect(
+        await lpToken_dai_ether.balanceOf(await chef.getAddress())
+      ).to.be.equal(AMOUNT_TO_STAKE);
+      expect(
+        await lpToken_dai_ether.balanceOf(await chef.getAddress())
+      ).to.be.equal(AMOUNT_TO_STAKE);
+      await chef.withdrawLpTokens(0);
 
+      expect(await lpToken_dai_ether.balanceOf(owner)).to.be.equal(
+        LP_TOKEN_INITAL_SUPPLY
+      );
+    });
+
+    it("Should be right pending rewards and reward withdrawl amount", async function () {
+      const { wind, owner, chef, lpToken_dai_ether } = await loadFixture(
+        deployContracts
+      );
+
+      const _BLOCK_TO_MINE = 100;
+      // Adding LP token to chef contract
+      await chef.add(
+        await lpToken_dai_ether.getAddress(),
+        100000,
+        REWARD_PER_BLOCK_PERCENT
+      );
+      // Approving the chef contract address in lp token by user to trasnfer tokens to the chef contract
+      await lpToken_dai_ether.approve(await chef.getAddress(), AMOUNT_TO_STAKE);
       // Depositing
       await chef.deposit(0, AMOUNT_TO_STAKE);
 
-      // Mining 100 blocks
-      await mine(100);
+      await mine(_BLOCK_TO_MINE);
 
-      expect((await chef.userinfo(0, owner)).exists).to.be.equal(true);
+      expect((await chef.userInfo(0, owner)).reward_per_block).to.be.equal(
+        (REWARD_PER_BLOCK_PERCENT / 100) * AMOUNT_TO_STAKE
+      );
+      expect(await chef.pendingReward(owner)).to.be.equal(
+        ((AMOUNT_TO_STAKE * REWARD_PER_BLOCK_PERCENT) / 100) *
+          (_BLOCK_TO_MINE - 1)
+      );
+      expect(await wind.balanceOf(owner)).to.be.equal(0);
+      await chef.withdrawReward();
+      expect(await wind.balanceOf(owner)).to.be.equal(
+        ((AMOUNT_TO_STAKE * REWARD_PER_BLOCK_PERCENT) / 100) * _BLOCK_TO_MINE
+      );
     });
   });
-
-  // it("Should set the right owner", async function () {
-  //   const { lock, owner } = await loadFixture(deployOneYearLockFixture);
-
-  //   expect(await lock.owner()).to.equal(owner.address);
-  // });
-
-  //     it("Should receive and store the funds to lock", async function () {
-  //       const { lock, lockedAmount } = await loadFixture(
-  //         deployOneYearLockFixture
-  //       );
-
-  //       expect(await hre.ethers.provider.getBalance(lock.target)).to.equal(
-  //         lockedAmount
-  //       );
-  //     });
-
-  //     it("Should fail if the unlockTime is not in the future", async function () {
-  //       // We don't use the fixture here because we want a different deployment
-  //       const latestTime = await time.latest();
-  //       const Lock = await hre.ethers.getContractFactory("Lock");
-  // await expect(Lock.deploy(latestTime, { value: 1 })).to.be.revertedWith(
-  //   "Unlock time should be in the future"
-  // );
-  //     });
-  //   });
-
-  //   describe("Withdrawals", function () {
-  //     describe("Validations", function () {
-  //       it("Should revert with the right error if called too soon", async function () {
-  //         const { lock } = await loadFixture(deployOneYearLockFixture);
-
-  //         await expect(lock.withdraw()).to.be.revertedWith(
-  //           "You can't withdraw yet"
-  //         );
-  //       });
-
-  //       it("Should revert with the right error if called from another account", async function () {
-  //         const { lock, unlockTime, otherAccount } = await loadFixture(
-  //           deployOneYearLockFixture
-  //         );
-
-  //         // We can increase the time in Hardhat Network
-  //         await time.increaseTo(unlockTime);
-
-  //         // We use lock.connect() to send a transaction from another account
-  //         await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
-  //           "You aren't the owner"
-  //         );
-  //       });
-
-  //       it("Shouldn't fail if the unlockTime has arrived and the owner calls it", async function () {
-  //         const { lock, unlockTime } = await loadFixture(
-  //           deployOneYearLockFixture
-  //         );
-
-  //         // Transactions are sent using the first signer by default
-  //         await time.increaseTo(unlockTime);
-
-  //         await expect(lock.withdraw()).not.to.be.reverted;
-  //       });
-  //     });
-
-  //     describe("Events", function () {
-  //       it("Should emit an event on withdrawals", async function () {
-  //         const { lock, unlockTime, lockedAmount } = await loadFixture(
-  //           deployOneYearLockFixture
-  //         );
-
-  //         await time.increaseTo(unlockTime);
-
-  //         await expect(lock.withdraw())
-  //           .to.emit(lock, "Withdrawal")
-  //           .withArgs(lockedAmount, anyValue); // We accept any value as `when` arg
-  //       });
-  //     });
-
-  //     describe("Transfers", function () {
-  //       it("Should transfer the funds to the owner", async function () {
-  //         const { lock, unlockTime, lockedAmount, owner } = await loadFixture(
-  //           deployOneYearLockFixture
-  //         );
-
-  //         await time.increaseTo(unlockTime);
-
-  //         await expect(lock.withdraw()).to.changeEtherBalances(
-  //           [owner, lock],
-  //           [lockedAmount, -lockedAmount]
-  //         );
-  //       });
-  //     });
-  //   });
 });

@@ -10,7 +10,7 @@ contract Wind is ERC20 {
         owner= msg.sender;
     }
 
-    function min (uint256 _amount) public {
+    function mint (uint256 _amount) public {
         require(msg.sender == owner, "You are not Owner");
         _mint(msg.sender, _amount);
     }

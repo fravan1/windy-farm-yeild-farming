@@ -5,6 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import "./Wind.sol";
 
+//DEV ONLY REMOVE IN PRODI+UCTION
+import "hardhat/console.sol";
+
 contract Chef  {
     
     using SafeERC20 for IERC20;
@@ -33,8 +36,9 @@ contract Chef  {
     address public owner;
     Wind public wind;
     uint256 public startblock;
+    uint256 public poolIndex= 0;
     Poolinfo [] public polinfo;
-    mapping (uint256 => mapping ( address => UserInfo)) public userinfo;
+    mapping (uint256 => mapping ( address => UserInfo)) public userInfo;
     
     constructor (uint256 _startblock, Wind _wind, address _owner)  {
         startblock= _startblock;
@@ -54,18 +58,19 @@ contract Chef  {
          reward_per_block_percent_per_block: _reward_per_block_percent_per_block,
          last_reward_block: _last_reward_block
         }));
+        poolIndex= poolIndex +1;
     }
 
     function divide(uint256 numerator, uint256 denominator, uint256 precision) internal pure returns (uint256) {
             require(denominator != 0, "Denominator cannot be zero");
-
-            uint256 scalingFactor = 10 ** precision;
-
-            uint256 scaledNumerator = numerator * scalingFactor;
-
-            uint256 result = scaledNumerator / denominator;
-
-            return result; 
+            if ( numerator == denominator) {
+                return 1;
+            } else {
+                uint256 scalingFactor = 10 ** precision;
+                uint256 scaledNumerator = numerator * scalingFactor;
+                uint256 result = scaledNumerator / denominator;
+                return result; 
+            }
         }
 
         function getResultAsFloat(uint256 scaledResult, uint256 precision) public pure returns (string memory) {
@@ -99,19 +104,53 @@ contract Chef  {
 
     function deposit (uint256 _pid, uint256 _amount) public {
         Poolinfo storage pool = polinfo[_pid];
-        UserInfo storage user = userinfo[_pid][msg.sender];
+        UserInfo storage user = userInfo[_pid][msg.sender];
         if (_amount > 0) {
             require (pool.lpToken.allowance(msg.sender, address(this)) == _amount , "Not enough allowance");
-            //pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
+            bool transfer_succes= pool.lpToken.transferFrom(address(msg.sender), address(this), _amount);
+            require (transfer_succes, "Error in transfer");
             (bool isok, uint256 _total_new_amount) = Math.tryAdd(user.amount, _amount);
             require(isok, "Unknown Error");
             user.exists= true;
             user.amount= _total_new_amount;
             user.reward_pending = user.reward_pending + ( block.number - user.latest_deposit_block ) * user.reward_per_block;
             user.latest_deposit_block= block.number;
-            user.reward_per_block= divide(pool.reward_per_block_percent_per_block, 100, 5);
+            uint256 times_of_100 = divide( _total_new_amount, 100, 0);
+            user.reward_per_block= times_of_100 * pool.reward_per_block_percent_per_block;
         }
     }
 
+    function withdrawLpTokens (uint256 _pid) public {
+        Poolinfo storage pool = polinfo[_pid];
+        UserInfo storage user = userInfo[_pid][msg.sender];
+        pool.lpToken.transfer(address(msg.sender),  user.amount);
+        user.amount=0;
+        if (block.number > user.latest_deposit_block){
+            user.reward_pending = user.reward_pending + ( block.number - (user.latest_deposit_block +1) ) * user.reward_per_block;
+        }
+        user.reward_pending= 0;
+        user.reward_per_block= 0;
+    }
 
+    function withdrawReward () public {
+        uint256 total_reward = pendingReward(msg.sender);
+        wind.mint(total_reward);
+        console.log("Current block number");
+        wind.transfer(msg.sender, total_reward);
+    }
+
+    function pendingReward (address _user) public view  returns (uint256){
+        uint256 i= 0;
+        uint256 total_reward= 0;
+        while (i < poolIndex) {
+            UserInfo storage user = userInfo[i][_user];
+            if (block.number > user.latest_deposit_block){
+                console.log(user.latest_deposit_block);
+                (bool mul_success, uint256 mul_res) =  Math.tryMul( (block.number - user.latest_deposit_block -1) ,user.reward_per_block) ;
+                total_reward= total_reward+  mul_res;
+            }
+            i++;
+        }
+        return total_reward;
+    }
 }
